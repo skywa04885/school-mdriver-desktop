@@ -10,11 +10,15 @@ void activate(GtkApplication *app, gpointer udata)
   const char *axis0_path = nullptr;
   if (!getenv("AXIS0")) {
     axis0_path = "/dev/ttyUSB0";
-  } else axis0_path = axis0;
+    logger << "No AXIS0 env variable specified, defaulting to: " << axis0_path << ENDL;
+  } else {
+    snprintf(axis0, sizeof (axis0), getenv("AXIS0"));
+    axis0_path = axis0;
+  }
 
   Driver *mdriver0 = new Driver (axis0_path, B9600);
 
-  logger << "Creating connection to motor-driver 0" << ENDL;
+  logger << "Creating connection to motor-driver 0, device: " << axis0_path << ENDL;
   mdriver0->connect();
   logger << "Connection to motor-driver 0 created" << ENDL;
 
