@@ -1,17 +1,24 @@
 #include "main.h"
 
-static Driver mdriver0("/dev/ttyUSB0", B9600);
 
 void activate(GtkApplication *app, gpointer udata)
 {
   Logger logger("Main", LoggerLevel::DEBUG); 
   logger << "Application starting .." << ENDL;
 
+  char axis0[64];
+  const char *axis0_path = nullptr;
+  if (!getenv("AXIS0")) {
+    axis0_path = "/dev/ttyUSB0";
+  } else axis0_path = axis0;
+
+  Driver *mdriver0 = new Driver (axis0_path, B9600);
+
   logger << "Creating connection to motor-driver 0" << ENDL;
-  mdriver0.connect();
+  mdriver0->connect();
   logger << "Connection to motor-driver 0 created" << ENDL;
 
-  new GUI::CPanel(app, &mdriver0);
+  new GUI::CPanel(app, mdriver0);
 }
 
 
