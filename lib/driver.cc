@@ -1,5 +1,17 @@
 #include "driver.h"
 
+const char *pktErrorString(command_error_t err)
+{
+  switch (err)
+  {
+    case COMMAND_ERROR_DISABLE_NOT_ALLOWED: return "Disable not allowed ( Auto-Mode active )";
+    case COMMAND_ERROR_ENABLE_NOT_ALLOWED: return "Enable not allowed ( Auto-Mode active )";
+    case COMMAND_ERROR_INVALID_COMMAND: return "Invalid Command";
+    case COMMAND_ERROR_NONE: return "No Error";
+    default: return "Unknown Error";
+  }
+}
+
 Driver::Driver(const char *path, speed_t speed) noexcept:
   m_DevicePath(path), m_Speed(speed), m_Transmitting(false)
 {}
@@ -84,6 +96,36 @@ void Driver::write_command(command_packet_t *cmd)
   m_Transmitting = false;
 }
 
+void Driver::read_response(void)
+{
+  uint8_t i = 0;
+
+  // Waits for the start condition to be transmitted
+  while (this->read_byte() != COMMANDS_USART_FLAG);
+
+  // Reads the rest of the packet, until the stop condition
+  //  is reached
+  uint8_t t;
+  while (i < 240)
+  {
+    t = this->read_enccoded_byte();
+    if (t == COMMANDS_USART_FLAG) break;
+    else this->m_Buffer[i++] = t;
+  }
+
+  // Checks if an error should be thrown
+  if (this->getPktFromBuffer()->hdr.flags.err)
+    throw std::runtime_error(pktErrorString(static_cast<command_error_t>(
+      this->getPktFromBuffer()->body.payload[0])));
+}
+
+uint8_t Driver::read_enccoded_byte()
+{
+  uint8_t t = this->read_byte();
+  if (t == COMMANDS_USART_FLAG) return t;
+  return t | (this->read_byte() << 4);
+}
+
 void Driver::write_encoded_byte(uint8_t b)
 {
   // Writes the lower four bits
@@ -99,6 +141,16 @@ void Driver::write_byte(uint8_t b)
 {
   if (write(this->m_Port, &b, 1) < 0)
     throw std::runtime_error(std::string("write() failed: ") + strerror(errno));
+}
+
+uint8_t Driver::read_byte(void)
+{
+  uint8_t ret;
+  
+  if (read(this->m_Port, &ret, 1) < 0)
+    throw std::runtime_error(std::string("read() failed: ") + strerror(errno));
+
+  return ret;
 }
 
 Driver::~Driver()

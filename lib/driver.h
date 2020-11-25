@@ -14,6 +14,13 @@
  ******************************/
 
 typedef enum __attribute__ (( packed )) {
+  COMMAND_ERROR_NONE,
+  COMMAND_ERROR_ENABLE_NOT_ALLOWED,     /* Auto mode enabled, no manual enable allowed */
+  COMMAND_ERROR_DISABLE_NOT_ALLOWED,    /* Auto mode enabled, no manual disable allowed */
+  COMMAND_ERROR_INVALID_COMMAND
+} command_error_t;
+
+typedef enum __attribute__ (( packed )) {
   COMMAND_MOTOR_MX = 0,
   COMMAND_MOTOR_MR
 } command_motor_t;
@@ -26,7 +33,8 @@ typedef enum __attribute__ (( packed )) {
 } command_type_t;
 
 typedef struct __attribute__ (( packed )) {
-  unsigned reserved : 8;
+  unsigned err : 1;           /* If an error has occured */
+  unsigned reserved : 7;
 } command_packet_flags_t;
 
 typedef struct __attribute__ (( packed )) {
@@ -44,6 +52,8 @@ typedef struct __attribute__ (( packed )) {
   command_packet_body_t body;
 } command_packet_t;
 
+const char *pktErrorString(command_error_t err);
+
 /******************************
  * Class
  ******************************/
@@ -55,8 +65,14 @@ public:
 
   void connect(void);
   void write_command(command_packet_t *cmd);
+  void read_response(void);
   void write_encoded_byte(uint8_t b);
+  uint8_t read_enccoded_byte(void);
   void write_byte(uint8_t b);
+  uint8_t read_byte(void);
+
+  inline command_packet_t *getPktFromBuffer(void) noexcept
+  { return reinterpret_cast<command_packet_t *>(this->m_Buffer); }
 
   ~Driver();
 private:
@@ -64,6 +80,7 @@ private:
   int32_t m_Port;
   bool m_Open, m_Transmitting;
   speed_t m_Speed;
+  uint8_t m_Buffer[255];
 };
 
 #endif

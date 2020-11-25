@@ -2,6 +2,21 @@
 
 namespace GUI
 {
+  void cpanel_display_error(CPanel *panel, const char *message)
+  {
+    GtkDialogFlags flags = static_cast<GtkDialogFlags>(GTK_DIALOG_DESTROY_WITH_PARENT);
+    GtkWidget *dialog = gtk_message_dialog_new(
+      GTK_WINDOW(panel->m_Window),
+      flags,
+      GTK_MESSAGE_ERROR,
+      GTK_BUTTONS_CLOSE,
+      "Notice: %s",
+      message
+    );
+    gtk_dialog_run(GTK_DIALOG(dialog));
+    gtk_widget_destroy(dialog);
+  }
+
   void cpanel_change_motor_state(CPanel *panel, command_motor_t motor, bool enabled)
   {
     auto *cmd = reinterpret_cast<command_packet_t *>(malloc(sizeof(command_packet_t) + sizeof (uint8_t) + sizeof (uint32_t)));
@@ -10,8 +25,13 @@ namespace GUI
     cmd->body.size = 1;
     cmd->body.payload[0] = motor;
     panel->m_Axis0->write_command(cmd);
-
     free(cmd);
+    
+    try {
+      panel->m_Axis0->read_response();
+    } catch (const std::runtime_error &e) {
+      cpanel_display_error(panel, e.what());
+    }
   }
 
   void cpanel_home_motor(CPanel *panel, command_motor_t motor)
@@ -22,21 +42,36 @@ namespace GUI
     cmd->body.size = 1;
     cmd->body.payload[0] = motor;
     panel->m_Axis0->write_command(cmd);
-
     free(cmd);
+
+    try {
+      panel->m_Axis0->read_response();
+    } catch (const std::runtime_error &e) {
+      cpanel_display_error(panel, e.what());
+    }
   }
 
   void cpanel_move_motor(CPanel *panel, command_motor_t motor, uint32_t pos)
   {
-    auto *cmd = reinterpret_cast<command_packet_t *>(malloc(sizeof(command_packet_t) + sizeof (uint8_t) + sizeof (uint32_t)));
+    auto *cmd = reinterpret_cast<command_packet_t *>(malloc(sizeof(command_packet_t) + 5));
 
     cmd->hdr.type = COMMAND_TYPE_MOVE;
-    cmd->body.size = sizeof (uint32_t) + sizeof (uint8_t);
+    cmd->body.size = 5;
     cmd->body.payload[0] = motor;
-    cmd->body.payload[1];
-    panel->m_Axis0->write_command(cmd);
 
+    cmd->body.payload[1] = pos >> 0;
+    cmd->body.payload[2] = pos >> 8;
+    cmd->body.payload[3] = pos >> 16;
+    cmd->body.payload[4] = pos >> 24;
+
+    panel->m_Axis0->write_command(cmd);
     free(cmd);
+
+    try {
+      panel->m_Axis0->read_response();
+    } catch (const std::runtime_error &e) {
+      cpanel_display_error(panel, e.what());
+    }
   }
 
   void cpanel_disable_mr(GtkButton *button, gpointer udata)
@@ -119,7 +154,7 @@ namespace GUI
     // Creates the application
     this->m_Window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(this->m_Window), "MDriver Desktop");
-    gtk_window_set_default_size(GTK_WINDOW(this->m_Window), 700, 300);
+    // gtk_window_set_default_size(GTK_WINDOW(this->m_Window), 700, 300);
 
     // Creates the box
     this->m_RootBox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);

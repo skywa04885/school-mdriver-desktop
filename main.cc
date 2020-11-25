@@ -1,6 +1,6 @@
 #include "main.h"
 
-static Driver mdriver0("/dev/ttyUSB1", B9600);
+static Driver mdriver0("/dev/ttyUSB0", B9600);
 
 void activate(GtkApplication *app, gpointer udata)
 {
